@@ -21,6 +21,9 @@ services:
   blackbox:
     image: prom/blackbox-exporter:latest
     container_name: blackbox-exporter
+    dns:
+      - 10.102.13.215
+      - 8.8.8.8
     command:
       - '--config.file=/etc/blackbox/blackbox.yml'
     volumes:
