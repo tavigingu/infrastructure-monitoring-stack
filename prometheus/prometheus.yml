@@ -1,0 +1,125 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Blackbox exporter self-monitoring
+  - job_name: 'blackbox-exporter'
+    static_configs:
+      - targets: ['blackbox:9115']
+
+  # HTTP checks - Testing real websites
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://www.google.com
+          - https://www.cloudflare.com
+          - http://grafana:3000  # Grafana itself
+          - https://moodle.sprc.mta
+          - https://gitlab.sprc.mta
+          - https://mailcow.sprc.mta
+          - https://mattermost.sprc.mta
+          - http://sprc.mta
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # DNS checks - Testing real DNS servers
+  - job_name: 'blackbox-dns'
+    metrics_path: /probe
+    params:
+      module: [dns_check]
+    static_configs:
+      - targets:
+          - 8.8.8.8        # Google DNS
+          - 1.1.1.1        # Cloudflare DNS
+          - 10.102.13.215
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # ICMP ping checks - Testing real hosts
+  - job_name: 'blackbox-icmp'
+    metrics_path: /probe
+    params:
+      module: [icmp]
+    static_configs:
+      - targets:
+          - 8.8.8.8        # Google DNS
+          - 1.1.1.1        # Cloudflare DNS
+          - 10.102.13.215
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # TCP checks - Testing real services
+  - job_name: 'blackbox-tcp'
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - grafana:3000        # Grafana
+          - prometheus:9090     # Prometheus
+          - google.com:443
+          - 10.102.13.215:22    # VyOS SSH
+          - 10.102.13.215:80
+          - 10.102.13.215:443
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # New DNS checks for internal domains
+  - job_name: 'blackbox-dns-internal'
+    metrics_path: /probe
+    params:
+      module: [dns_check]
+    static_configs:
+      - targets:
+          - moodle.sprc.mta
+          - gitlab.sprc.mta
+          - mailcow.sprc.mta
+          - mattermost.sprc.mta
+          - sprc.mta
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_query_name  # Use target as the domain to query
+      - target_label: __param_target
+        replacement: 10.102.13.215        # Send query to this internal DNS server
+      - source_labels: [__address__]
+        target_label: instance            # Display domain in Grafana
+      - target_label: __address__
+        replacement: blackbox:9115

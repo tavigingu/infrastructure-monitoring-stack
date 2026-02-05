@@ -1,0 +1,113 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9091:9090"
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  blackbox:
+    image: prom/blackbox-exporter:latest
+    container_name: blackbox-exporter
+    command:
+      - '--config.file=/etc/blackbox/blackbox.yml'
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml
+    ports:
+      - "9115:9115"
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./alertmanager/mattermost.tmpl:/etc/alertmanager/mattermost.tmpl
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9094:9093"
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./grafana/blackbox_dashboard.json:/etc/grafana/provisioning/dashboards/blackbox_dashboard.json
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  postgres-mattermost:
+    image: postgres:14
+    container_name: mattermost-postgres
+    environment:
+      - POSTGRES_USER=mattermost
+      - POSTGRES_PASSWORD=mattermost
+      - POSTGRES_DB=mattermost
+    volumes:
+      - mattermost_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  mattermost:
+    image: mattermost/mattermost-team-edition:latest
+    container_name: mattermost
+    ports:
+      - "8065:8065"
+    environment:
+      - MM_SQLSETTINGS_DRIVERNAME=postgres
+      - MM_SQLSETTINGS_DATASOURCE=postgres://mattermost:mattermost@postgres-mattermost:5432/mattermost?sslmode=disable
+      - MM_SERVICESETTINGS_SITEURL=http://localhost:8065
+    volumes:
+      - mattermost_data:/mattermost/data
+      - mattermost_logs:/mattermost/logs
+      - mattermost_config:/mattermost/config
+    restart: unless-stopped
+    depends_on:
+      - postgres-mattermost
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+  mattermost_postgres_data:
+  mattermost_data:
+  mattermost_logs:
+  mattermost_config:

@@ -1,0 +1,29 @@
+global:
+  resolve_timeout: 5m
+
+templates:
+  - '/etc/alertmanager/mattermost.tmpl'
+
+route:
+  group_by: ['alertname', 'instance']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'mattermost'
+
+receivers:
+  - name: 'mattermost'
+    webhook_configs:
+      - url: 'http://CHANGE_ME:8065/hooks/WEBHOOK_ID_HERE'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+        # Template pentru mesaje în Mattermost
+        # Aici poți customiza formatul mesajelor
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']

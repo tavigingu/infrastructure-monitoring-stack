@@ -1,0 +1,83 @@
+groups:
+  - name: blackbox_alerts
+    interval: 30s
+    rules:
+      # Alert when probe is down for more than 2 minutes
+      - alert: ProbeDown
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Probe {{ $labels.instance }} is DOWN"
+          description: "Probe {{ $labels.instance }} ({{ $labels.job }}) has been down for more than 2 minutes."
+
+      # Alert when HTTP status is not 2xx
+      - alert: HttpStatusNotOK
+        expr: probe_http_status_code < 200 or probe_http_status_code >= 300
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP probe {{ $labels.instance }} returned bad status"
+          description: "HTTP probe {{ $labels.instance }} returned status code {{ $value }}."
+
+      # Alert when probe duration is too high
+      - alert: ProbeSlow
+        expr: probe_duration_seconds > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Probe {{ $labels.instance }} is slow"
+          description: "Probe {{ $labels.instance }} ({{ $labels.job }}) took {{ $value }}s to complete."
+
+      # Alert when SSL certificate expires soon
+      - alert: SSLCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 30
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSL certificate for {{ $labels.instance }} expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in less than 30 days."
+
+      # Alert when multiple probes are down
+      - alert: MultipleProbesDown
+        expr: count(probe_success == 0) > 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Multiple probes are DOWN"
+          description: "{{ $value }} probes are currently down."
+
+      # Alert specific for SPRC.MTA infrastructure
+      - alert: SPRCInfrastructureDown
+        expr: probe_success{instance=~".*sprc.mta"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🚨 SPRC.MTA Service {{ $labels.instance }} is DOWN"
+          description: "SPRC Infrastructure service {{ $labels.instance }} ({{ $labels.job }}) has been down for more than 2 minutes."
+
+      # Alert when SPRC.MTA DNS resolution fails
+      - alert: SPRCDNSResolutionFailed
+        expr: probe_success{job="blackbox-dns-internal"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔍 DNS Resolution Failed for {{ $labels.instance }}"
+          description: "DNS server at 10.102.13.215 cannot resolve {{ $labels.instance }} for more than 3 minutes."
+
+      # Alert when SPRC.MTA HTTP response is slow
+      - alert: SPRCServiceSlow
+        expr: probe_http_duration_seconds{instance=~".*sprc.mta"} > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "⏱️ SPRC Service {{ $labels.instance }} is SLOW"
+          description: "HTTP request to {{ $labels.instance }} took {{ $value }}s (threshold: 3s)."

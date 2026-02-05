@@ -1,0 +1,23 @@
+# Docker volumes - contain runtime data
+grafana_data/
+prometheus_data/
+alertmanager_data/
+mattermost_postgres_data/
+mattermost_data/
+mattermost_logs/
+mattermost_config/
+
+# Docker Compose override files
+docker-compose.override.yml
+
+# Environment files with secrets - NEVER commit these!
+.env
+*.env
+!.env.example
+
+# Config files with secrets - NEVER commit!
+alertmanager/alertmanager.yml
+
+# Temporary files
+*.tmp
+*.log

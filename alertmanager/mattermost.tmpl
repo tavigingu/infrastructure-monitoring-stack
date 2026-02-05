@@ -1,0 +1,16 @@
+{{ define "mattermost.title" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] Monitoring Alert
+{{ end }}
+
+{{ define "mattermost.text" }}
+{{ range .Alerts }}
+**[{{ .Status | toUpper }}{{ if eq .Status "firing" }} 🔥{{ else }} ✅{{ end }}]** {{ .Labels.alertname }}
+
+**Instance:** {{ .Labels.instance }}
+**Severity:** {{ .Labels.severity }}
+{{ if .Annotations.summary }}**Summary:** {{ .Annotations.summary }}{{ end }}
+{{ if .Annotations.description }}**Description:** {{ .Annotations.description }}{{ end }}
+
+---
+{{ end }}
+{{ end }}
